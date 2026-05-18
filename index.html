@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>人を動かす（オンライン）</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js"></script>
+
+<style>
+body { font-family: sans-serif; text-align:center; }
+#board {
+  display:grid;
+  grid-template-columns:repeat(8,50px);
+  gap:2px;
+  margin:20px auto;
+}
+.cell {
+  width:50px;height:50px;
+  border:1px solid #999;
+  display:flex;align-items:center;justify-content:center;
+}
+.p1 { background:#4da6ff; }
+.p2 { background:#ff6666; }
+.neutral { background:#ccc; }
+.selected { outline:3px solid yellow; }
+#log { height:120px; overflow:auto; border:1px solid #000; width:400px; margin:auto; font-size:12px;}
+</style>
+</head>
+
+<body>
+
+<h1>人を動かす（オンライン）</h1>
+<div id="turn"></div>
+<div id="board"></div>
+
+<select id="action">
+<option>移動</option>
+<option>説得</option>
+<option>攻撃</option>
+<option>扇動</option>
+<option>命令</option>
+</select>
+
+<div id="log"></div>
+
+<script type="module">
+
+// 🔴 Firebase設定（ここを書き換え）
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAHQufe4vI0Q7-iuIY7Q2WoRqKDR8p7JeU",
+  authDomain: "operatingus-390a7.firebaseapp.com",
+  databaseURL: "https://operatingus-390a7-default-rtdb.firebaseio.com",
+  projectId: "operatingus-390a7",
+
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// 🔵 URL設定
+const params = new URLSearchParams(location.search);
+const room = params.get("room") || "test";
+const myPlayer = location.hash === "#p2" ? "P2" : "P1";
+
+const SIZE = 8;
+let board = [];
+let turn = "P1";
+let selected = null;
+
+const TYPES = {
+  "一般人": { persuade:4, attack:5 },
+  "強い人": { persuade:5, attack:3 },
+  "臆病者": { persuade:3, attack:6 },
+  "扇動者": { persuade:5, attack:5 },
+  "裏切り者": { persuade:2, attack:4 }
+};
+
+const log = m => {
+  document.getElementById("log").innerHTML += m+"<br>";
+};
+
+function rand(n){return Math.floor(Math.random()*n);}
+
+// 初期化
+function initState(){
+  let b = Array(SIZE).fill().map(()=>Array(SIZE).fill(null));
+  b[7][0] = {type:"P1",side:"P1"};
+  b[0][7] = {type:"P2",side:"P2"};
+
+  let pool = [
+    ...Array(8).fill("一般人"),
+    ...Array(3).fill("強い人"),
+    ...Array(2).fill("臆病者"),
+    ...Array(2).fill("扇動者"),
+    ...Array(1).fill("裏切り者")
+  ].sort(()=>Math.random()-0.5);
+
+  let i=0;
+  while(i<pool.length){
+    let x=rand(8),y=rand(8);
+    if(!b[y][x]){
+      b[y][x]={type:pool[i],side:"neutral"};
+      i++;
+    }
+  }
+  return {board:b,turn:"P1"};
+}
+
+// Firebase同期
+const gameRef = ref(db,"games/"+room);
+
+// 初期データ作成
+set(gameRef, initState());
+
+// 受信
+onValue(gameRef,(snap)=>{
+  let data=snap.val();
+  board=data.board;
+  turn=data.turn;
+  draw();
+});
+
+// 描画
+function draw(){
+  const el=document.getElementById("board");
+  el.innerHTML="";
+  board.forEach((row,y)=>{
+    row.forEach((c,x)=>{
+      const d=document.createElement("div");
+      d.className="cell";
+
+      if(c){
+        d.classList.add(c.side==="neutral"?"neutral":c.side.toLowerCase());
+        d.textContent = c.type==="P1"||c.type==="P2"?c.type:c.type[0];
+      }
+
+      if(selected && selected.x===x && selected.y===y){
+        d.classList.add("selected");
+      }
+
+      d.onclick=()=>click(x,y);
+      el.appendChild(d);
+    });
+  });
+
+  document.getElementById("turn").textContent="Turn: "+turn+" / You: "+myPlayer;
+}
+
+// 操作
+function click(x,y){
+  if(turn!==myPlayer) return;
+
+  if(!selected){
+    selected={x,y};
+    draw();
+    return;
+  }
+
+  let action=document.getElementById("action").value;
+  let from=selected;
+  let to={x,y};
+  let a=board[from.y][from.x];
+  let t=board[to.y][to.x];
+
+  let dx=Math.abs(from.x-to.x);
+  let dy=Math.abs(from.y-to.y);
+  let adj=dx+dy===1;
+
+  if(action==="移動" && adj && !t){
+    board[to.y][to.x]=a;
+    board[from.y][from.x]=null;
+  }
+
+  if(action==="説得" && adj && t && t.side==="neutral"){
+    if(rand(6)+1>=TYPES[t.type].persuade) t.side=turn;
+  }
+
+  if(action==="攻撃" && adj && t){
+    if(t.type==="P1"||t.type==="P2"){
+      if(rand(6)+1>=4){ alert(turn+"勝利"); }
+    } else {
+      if(rand(6)+1>=TYPES[t.type].attack){
+        board[to.y][to.x]=null;
+      }
+    }
+  }
+
+  if(action==="扇動"){
+    for(let dy=-1;dy<=1;dy++){
+      for(let dx=-1;dx<=1;dx++){
+        let nx=from.x+dx, ny=from.y+dy;
+        let c=board[ny]?.[nx];
+        if(c && c.side==="neutral"){
+          if(rand(6)+1>=TYPES[c.type].persuade){
+            c.side=turn;
+          }
+        }
+      }
+    }
+  }
+
+  selected=null;
+  turn=turn==="P1"?"P2":"P1";
+
+  set(gameRef,{board,turn});
+}
+
+// 初回描画
+draw();
+
+</script>
+</body>
+</html>
