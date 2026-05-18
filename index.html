@@ -126,7 +126,10 @@ if(!data){
   return;
 }
 
-  board = Object.values(data.board).map(row => Object.values(row));
+  board = Object.values(data.board).map(row => {
+  if(Array.isArray(row)) return row;
+  return Object.values(row);
+});
   turn = data.turn;
   draw();
 });
