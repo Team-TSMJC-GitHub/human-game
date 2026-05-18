@@ -116,11 +116,15 @@ gameRef.once("value", snap => {
 gameRef.on("value", (snap)=>{
   let data = snap.val();
 
-  if(!data){
-    const init = initState();
-    gameRef.set(init);
-    return;
-  }
+if(!data){
+  const init = initState();
+  gameRef.set(init);
+
+  board = init.board;
+  turn = init.turn;
+  draw();
+  return;
+}
 
   board = data.board;
   turn = data.turn;
