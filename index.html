@@ -28,8 +28,6 @@ body { font-family: sans-serif; background:#f5f5f5; text-align:center; }
   cursor:pointer;
 }
 
-.cell:hover { transform:scale(1.05); }
-
 .p1 { background:#4da6ff; color:#fff; }
 .p2 { background:#ff6666; color:#fff; }
 .neutral { background:#ddd; }
@@ -37,7 +35,7 @@ body { font-family: sans-serif; background:#f5f5f5; text-align:center; }
 .selected { outline:4px solid yellow; }
 .highlight { box-shadow:0 0 10px gold inset; }
 
-#panel { width:200px; }
+#panel { width:220px; }
 
 button {
   width:100%;
@@ -54,9 +52,17 @@ button.active { background:#ffcc00; color:#000; }
 
 #turn { font-size:20px; margin-bottom:10px; }
 
+#desc {
+  margin-top:10px;
+  font-size:13px;
+  background:#fff;
+  padding:8px;
+  border-radius:6px;
+}
+
 #log {
   margin-top:10px;
-  height:150px;
+  height:120px;
   overflow:auto;
   background:#fff;
   border-radius:6px;
@@ -81,7 +87,8 @@ button.active { background:#ffcc00; color:#000; }
     <button onclick="setAction('説得')">説得</button>
     <button onclick="setAction('攻撃')">攻撃</button>
     <button onclick="setAction('扇動')">扇動</button>
-    <button onclick="setAction('命令')">命令</button>
+
+    <div id="desc">行動を選択してください</div>
     <div id="log"></div>
   </div>
 </div>
@@ -91,7 +98,6 @@ button.active { background:#ffcc00; color:#000; }
 <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-database-compat.js"></script>
 
 <script>
-// Firebase設定
 const firebaseConfig = {
   apiKey: "AIzaSyAHQufe4vI0Q7-iuIY7Q2WoRqKDR8p7JeU",
   authDomain: "operatingus-390a7.firebaseapp.com",
@@ -111,6 +117,13 @@ let board = [];
 let turn = "P1";
 let selected = null;
 let action = "移動";
+
+const ACTION_DESC = {
+  "移動": "上下左右1マス移動する",
+  "説得": "隣の中立を味方にする（運要素あり）",
+  "攻撃": "隣の敵またはプレイヤーを攻撃",
+  "扇動": "周囲1マスの中立をまとめて説得"
+};
 
 const TYPES = {
   "一般人": { persuade:4, attack:5 },
@@ -134,6 +147,7 @@ function setAction(a){
     b.classList.remove("active");
     if(b.textContent === a) b.classList.add("active");
   });
+  document.getElementById("desc").textContent = ACTION_DESC[a];
 }
 
 function initState(){
@@ -168,7 +182,6 @@ gameRef.on("value", (snap)=>{
   if(!data){
     const init = initState();
     gameRef.set(init);
-
     board = init.board;
     turn = init.turn;
     draw();
@@ -177,7 +190,6 @@ gameRef.on("value", (snap)=>{
 
   board = Object.values(data.board).map(row => Array.isArray(row)?row:Object.values(row));
   turn = data.turn;
-
   draw();
 });
 
@@ -212,7 +224,8 @@ function draw(){
     });
   });
 
-  document.getElementById("turn").textContent = `Turn: ${turn} / You: ${myPlayer}`;
+  document.getElementById("turn").textContent =
+    `Turn: ${turn} / You: ${myPlayer}`;
 }
 
 function click(x,y){
@@ -220,6 +233,7 @@ function click(x,y){
 
   if(!selected){
     selected={x,y};
+    document.getElementById("desc").textContent = "対象マスをクリック";
     draw();
     return;
   }
