@@ -112,19 +112,21 @@ gameRef.once("value", snap => {
   }
 });
 
-  // 初回描画（これ追加）
-board = initState().board;
-draw();
 
-// 受信
 gameRef.on("value", (snap)=>{
-  let data=snap.val();
-  if(!data) return;
-  board=data.board;
-  turn=data.turn;
+  let data = snap.val();
+
+  if(!data){
+    const init = initState();
+    gameRef.set(init);
+    return;
+  }
+
+  board = data.board;
+  turn = data.turn;
   draw();
 });
-
+  
 // 描画
 function draw(){
   const el=document.getElementById("board");
