@@ -112,6 +112,10 @@ gameRef.once("value", snap => {
   }
 });
 
+  // 初回描画（これ追加）
+board = initState().board;
+draw();
+
 // 受信
 gameRef.on("value", (snap)=>{
   let data=snap.val();
